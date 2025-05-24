@@ -41,8 +41,16 @@ public class RateLimitRepository {
         this.entityManager = entityManager;
     }
 
-    public RateLimit upsertAndGet(String id) {
-        Object[] result = (Object[]) entityManager.createNativeQuery(UPSERT_POSTGRESQL)
+    public RateLimit upsertAndGet(String id, String dbProductName) {
+        if ("postgresql".equalsIgnoreCase(dbProductName)) {
+            return upsertAndGetInternal(id, UPSERT_POSTGRESQL);
+        }
+
+        throw new RuntimeException("Detected db " + dbProductName + " but currently only PostgreSQL is supported.");
+    }
+
+    private RateLimit upsertAndGetInternal(String id, String sql) {
+        Object[] result = (Object[]) entityManager.createNativeQuery(sql)
                 .setParameter(1, id)
                 .getSingleResult();
 
@@ -57,7 +65,15 @@ public class RateLimitRepository {
         return wl;
     }
 
-    public void prune() {
+    public void prune(String dbProductName) {
+        if ("postgresql".equalsIgnoreCase(dbProductName)) {
+            prune(PRUNE_POSTGRESQL);
+        }
+
+        throw new RuntimeException("Detected db " + dbProductName + " but currently only PostgreSQL is supported.");
+    }
+
+    private void pruneInternal(String sql) {
         entityManager.createNativeQuery(PRUNE_POSTGRESQL)
                 .executeUpdate();
     }

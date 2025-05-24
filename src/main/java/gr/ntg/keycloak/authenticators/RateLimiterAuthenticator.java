@@ -44,7 +44,7 @@ public class RateLimiterAuthenticator implements Authenticator {
             key = key + "_" + clientName;
         }
 
-        var wl = rateLimiterRepository.upsertAndGet(key);
+        var wl = rateLimiterRepository.upsertAndGet(key, RateLimiterAuthenticatorFactory.DbProductName);
 
         if (wl.getSecCounter() > intMaxPerSecond) {
             ConstructErrorResponse(context, maxPerSecond, "second");

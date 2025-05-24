@@ -1,6 +1,10 @@
 package gr.ntg.keycloak.authenticators;
 
 import gr.ntg.keycloak.Constants;
+import io.agroal.api.AgroalDataSource;
+import io.quarkus.arc.Arc;
+import jakarta.inject.Inject;
+import lombok.extern.jbosslog.JBossLog;
 import org.keycloak.Config;
 import org.keycloak.authentication.Authenticator;
 import org.keycloak.authentication.AuthenticatorFactory;
@@ -9,15 +13,23 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.KeycloakSessionFactory;
 import org.keycloak.provider.ProviderConfigProperty;
 
+import javax.sql.DataSource;
+import java.sql.Connection;
 import java.util.Arrays;
 import java.util.List;
 
+@JBossLog
 public class RateLimiterAuthenticatorFactory implements AuthenticatorFactory {
     public static final String PROVIDER_ID = "rate-limiter-authenticator";
     public static final String DEFAULT_TOKENS_PER_SECOND = "1";
     public static final String DEFAULT_TOKENS_PER_MINUTE = "3";
+    public static String DbProductName;
+    public static String DbProductVersion;
+
     private static final RateLimiterAuthenticator SINGLETON = new RateLimiterAuthenticator();
 
+    @Inject
+    DataSource dataSource;
     @Override
     public String getId() {
         return PROVIDER_ID;
@@ -69,7 +81,6 @@ public class RateLimiterAuthenticatorFactory implements AuthenticatorFactory {
 
     @Override
     public void init(Config.Scope scope) {
-
     }
 
     @Override
@@ -84,6 +95,30 @@ public class RateLimiterAuthenticatorFactory implements AuthenticatorFactory {
 
     @Override
     public Authenticator create(KeycloakSession session) {
+        ensureDatabaseDetected();
         return SINGLETON;
+    }
+
+    private void ensureDatabaseDetected() {
+        if (DbProductName != null) return;  // already done
+
+        synchronized (this) {
+            if (DbProductName != null) return;
+
+            var ds = Arc.container()
+                    .instance(AgroalDataSource.class)
+                    .get();
+
+            try (Connection c = ds.getConnection()) {
+                var md = c.getMetaData();
+                DbProductName    = md.getDatabaseProductName();
+                DbProductVersion = md.getDatabaseProductVersion();
+                log.infof("Detected DB at runtime: %s - %s", DbProductName, DbProductVersion);
+            } catch (Exception e) {
+                log.error("Failed to detect database at runtime", e);
+                DbProductName = "unknown";
+                DbProductVersion = "unknown";
+            }
+        }
     }
 }
