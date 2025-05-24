@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+      http://www.liquibase.org/xml/ns/dbchangelog
+      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet author="ntg" id="create-rate-limit-postgresql" dbms="postgresql">
+        <createTable tableName="rate_limits">
+            <column name="id" type="TEXT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="sec_window_start" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sec_counter" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="min_window_start" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="min_counter" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex
+                indexName="idx_rate_limits_sec_window_start"
+                tableName="rate_limits">
+            <column name="sec_window_start"/>
+        </createIndex>
+
+        <createIndex
+                indexName="idx_rate_limits_min_window_start"
+                tableName="rate_limits">
+            <column name="min_window_start"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet author="ntg" id="create-rate-limit-mysql" dbms="mysql">
+        <createTable tableName="rate_limits">
+            <column name="id" type="TEXT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="sec_window_start" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sec_counter" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="min_window_start" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="min_counter" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <sql>
+            CREATE INDEX idx_rate_limits_sec_window_start
+                ON rate_limits(sec_window_start);
+
+            CREATE INDEX idx_rate_limits_min_window_start
+                ON rate_limits(min_window_start);
+        </sql>
+    </changeSet>
+
+    <changeSet author="ntg" id="create-rate-limit-sqlserver" dbms="mssql">
+        <createTable tableName="rate_limits">
+            <column name="id" type="TEXT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="sec_window_start" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sec_counter" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="min_window_start" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="min_counter" type="INTEGER">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <sql>
+            CREATE INDEX idx_rate_limits_sec_window_start
+                ON rate_limits(sec_window_start);
+
+            CREATE INDEX idx_rate_limits_min_window_start
+                ON rate_limits(min_window_start);
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>
