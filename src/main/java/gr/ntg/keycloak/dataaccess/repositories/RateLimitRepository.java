@@ -65,6 +65,35 @@ public class RateLimitRepository {
                     "WHERE sec_window_start < NOW() - INTERVAL 2 SECOND " +
                     "   AND min_window_start < NOW() - INTERVAL 2 MINUTE";
 
+    private static final String UPSERT_MSSQL =
+            "MERGE rate_limits AS target " +
+                    "USING (VALUES (?1)) AS src(id) " +
+                    "  ON target.id = src.id " +
+                    "WHEN NOT MATCHED THEN " +
+                    "  INSERT (id, sec_window_start, sec_counter, min_window_start, min_counter) " +
+                    "  VALUES (src.id, SYSUTCDATETIME(), 1, SYSUTCDATETIME(), 1) " +
+                    "WHEN MATCHED THEN " +
+                    "  UPDATE SET " +
+                    "    sec_window_start = CASE " +
+                    "      WHEN target.sec_window_start < DATEADD(SECOND, -1, SYSUTCDATETIME()) THEN SYSUTCDATETIME() " +
+                    "      ELSE target.sec_window_start END, " +
+                    "    sec_counter = CASE " +
+                    "      WHEN target.sec_window_start < DATEADD(SECOND, -1, SYSUTCDATETIME()) THEN 1 " +
+                    "      ELSE target.sec_counter + 1 END, " +
+                    "    min_window_start = CASE " +
+                    "      WHEN target.min_window_start < DATEADD(MINUTE, -1, SYSUTCDATETIME()) THEN SYSUTCDATETIME() " +
+                    "      ELSE target.min_window_start END, " +
+                    "    min_counter = CASE " +
+                    "      WHEN target.min_window_start < DATEADD(MINUTE, -1, SYSUTCDATETIME()) THEN 1 " +
+                    "      ELSE target.min_counter + 1 END " +
+                    "OUTPUT " +
+                    "  inserted.sec_counter, inserted.min_counter;";
+
+    private static final String PRUNE_MSSQL =
+            "  DELETE FROM rate_limits " +
+                    " WHERE sec_window_start < DATEADD(SECOND, -2, SYSUTCDATETIME()) " +
+                    "    AND min_window_start < DATEADD(MINUTE, -2, SYSUTCDATETIME());";
+
     public RateLimitRepository(EntityManager entityManager) {
         this.entityManager = entityManager;
     }
@@ -76,8 +105,11 @@ public class RateLimitRepository {
         else if ("mysql".equalsIgnoreCase(dbProductName)) {
             return upsertAndGetInternal(id, UPSERT_MYSQL, SELECT_MYSQL);
         }
+        else if ("microsoft sql server".equalsIgnoreCase(dbProductName)) {
+            return upsertAndGetInternal(id, UPSERT_MSSQL);
+        }
 
-        throw new RuntimeException("Detected db " + dbProductName + " but currently only PostgreSQL and MySQL are supported.");
+        throw new RuntimeException("Detected db " + dbProductName + " but currently only PostgreSQL, Microsoft SQL Server and MySQL are supported.");
     }
 
     private RateLimit upsertAndGetInternal(String id, String sql) {
@@ -123,8 +155,11 @@ public class RateLimitRepository {
         else if ("mysql".equalsIgnoreCase(dbProductName)) {
             prune(PRUNE_MYSQL);
         }
+        else if ("microsoft sql server".equalsIgnoreCase(dbProductName)) {
+            prune(PRUNE_MSSQL);
+        }
 
-        throw new RuntimeException("Detected db " + dbProductName + " but currently only PostgreSQL and MySQL are supported.");
+        throw new RuntimeException("Detected db " + dbProductName + " but currently only PostgreSQL, Microsoft SQL Server and MySQL are supported.");
     }
 
     private void pruneInternal(String sql) {

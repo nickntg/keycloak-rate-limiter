@@ -68,7 +68,7 @@
 
     <changeSet author="ntg" id="create-rate-limit-sqlserver" dbms="mssql">
         <createTable tableName="rate_limits">
-            <column name="id" type="TEXT">
+            <column name="id" type="VARCHAR(2048)">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
             <column name="sec_window_start" type="TIMESTAMP">
