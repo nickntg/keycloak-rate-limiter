@@ -40,7 +40,7 @@
 
     <changeSet author="ntg" id="create-rate-limit-mysql" dbms="mysql">
         <createTable tableName="rate_limits">
-            <column name="id" type="TEXT">
+            <column name="id" type="VARCHAR(128)">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
             <column name="sec_window_start" type="TIMESTAMP">

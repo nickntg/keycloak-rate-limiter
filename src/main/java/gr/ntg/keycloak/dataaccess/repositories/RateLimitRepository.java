@@ -37,6 +37,34 @@ public class RateLimitRepository {
                     "WHERE sec_window_start < now() - interval '2 seconds' " +
                     "   AND min_window_start < now() - interval '2 minutes';";
 
+    private static final String UPSERT_MYSQL =
+            "INSERT INTO rate_limits" +
+                    "  (id, sec_window_start, sec_counter, min_window_start, min_counter) " +
+                    "VALUES " +
+                    "  (?1, NOW(), 1, NOW(), 1) " +
+                    "ON DUPLICATE KEY UPDATE " +
+                    "  sec_counter      = IF(sec_window_start < NOW() - INTERVAL 1 SECOND, " +
+                    "                                     1, " +
+                    "                                     sec_counter + 1), " +
+                    "  sec_window_start = IF(sec_window_start < NOW() - INTERVAL 1 SECOND, " +
+                    "                        NOW(), " +
+                    "                        sec_window_start), " +
+                    "  min_counter      = IF(min_window_start < NOW() - INTERVAL 1 MINUTE, " +
+                    "                                     1, " +
+                    "                                     min_counter + 1), " +
+                    "  min_window_start = IF(min_window_start < NOW() - INTERVAL 1 MINUTE, " +
+                    "                        NOW(), " +
+                    "                        min_window_start); ";
+    private static final String SELECT_MYSQL =
+                    "SELECT sec_counter, min_counter " +
+                    "  FROM rate_limits " +
+                    " WHERE id = ?1;";
+
+    private static final String PRUNE_MYSQL =
+            "DELETE FROM rate_limits " +
+                    "WHERE sec_window_start < NOW() - INTERVAL 2 SECOND " +
+                    "   AND min_window_start < NOW() - INTERVAL 2 MINUTE";
+
     public RateLimitRepository(EntityManager entityManager) {
         this.entityManager = entityManager;
     }
@@ -45,8 +73,11 @@ public class RateLimitRepository {
         if ("postgresql".equalsIgnoreCase(dbProductName)) {
             return upsertAndGetInternal(id, UPSERT_POSTGRESQL);
         }
+        else if ("mysql".equalsIgnoreCase(dbProductName)) {
+            return upsertAndGetInternal(id, UPSERT_MYSQL, SELECT_MYSQL);
+        }
 
-        throw new RuntimeException("Detected db " + dbProductName + " but currently only PostgreSQL is supported.");
+        throw new RuntimeException("Detected db " + dbProductName + " but currently only PostgreSQL and MySQL are supported.");
     }
 
     private RateLimit upsertAndGetInternal(String id, String sql) {
@@ -65,12 +96,35 @@ public class RateLimitRepository {
         return wl;
     }
 
+    private RateLimit upsertAndGetInternal(String id, String upsertSql, String selectSql) {
+        entityManager.createNativeQuery(upsertSql)
+                .setParameter(1, id)
+                .executeUpdate();
+
+        Object[] result = (Object[]) entityManager.createNativeQuery(selectSql)
+                .setParameter(1, id)
+                .getSingleResult();
+
+        int secCount = ((Number) result[0]).intValue();
+        int minCount = ((Number) result[1]).intValue();
+
+        var wl = new RateLimit();
+        wl.setId(id);
+        wl.setSecCounter(secCount);
+        wl.setMinCounter(minCount);
+
+        return wl;
+    }
+
     public void prune(String dbProductName) {
         if ("postgresql".equalsIgnoreCase(dbProductName)) {
             prune(PRUNE_POSTGRESQL);
         }
+        else if ("mysql".equalsIgnoreCase(dbProductName)) {
+            prune(PRUNE_MYSQL);
+        }
 
-        throw new RuntimeException("Detected db " + dbProductName + " but currently only PostgreSQL is supported.");
+        throw new RuntimeException("Detected db " + dbProductName + " but currently only PostgreSQL and MySQL are supported.");
     }
 
     private void pruneInternal(String sql) {
